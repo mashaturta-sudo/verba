@@ -21,14 +21,81 @@ jobs:
 
       - name: Prepare Android project
         run: |
+          rm -rf app/src/main/java
+          rm -rf app/src/main/assets
+          rm -rf app/src/main/res/values
+
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/verba/rules
           mkdir -p app/src/main/res/values
 
           cp index.html app/src/main/assets/index.html
           cp rules.json app/src/main/assets/rules.json
-          cp MainActivity.kt app/src/main/java/com/verba/rules/MainActivity.kt
-          cp styles.xml app/src/main/res/values/styles.xml
+
+          cat > app/src/main/java/com/verba/rules/MainActivity.kt <<'EOF'
+          package com.verba.rules
+
+          import android.app.Activity
+          import android.os.Bundle
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import android.graphics.Color
+          import androidx.core.view.WindowCompat
+          import androidx.core.view.WindowInsetsCompat
+          import androidx.core.view.WindowInsetsControllerCompat
+
+          class MainActivity : Activity() {
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  WindowCompat.setDecorFitsSystemWindows(window, false)
+
+                  val controller = WindowCompat.getInsetsController(window, window.decorView)
+                  controller.hide(WindowInsetsCompat.Type.navigationBars())
+                  controller.systemBarsBehavior =
+                      WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+                  val web = WebView(this)
+
+                  web.settings.javaScriptEnabled = true
+                  web.settings.domStorageEnabled = true
+                  web.settings.allowFileAccess = true
+                  web.webViewClient = WebViewClient()
+
+                  web.setBackgroundColor(Color.TRANSPARENT)
+
+                  web.loadUrl("file:///android_asset/index.html")
+
+                  setContentView(web)
+              }
+
+              @Deprecated("Deprecated in Java")
+              override fun onBackPressed() {
+                  val web = findViewById<WebView>(android.R.id.content)
+                      ?.getChildAt(0) as? WebView
+
+                  if (web != null && web.canGoBack()) {
+                      web.goBack()
+                  } else {
+                      super.onBackPressed()
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#009FEF</item>
+                  <item name="android:navigationBarColor">#009FEF</item>
+                  <item name="android:colorAccent">#00D9FF</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+              </style>
+          </resources>
+          EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
