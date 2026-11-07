@@ -18,12 +18,12 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
@@ -31,17 +31,10 @@ jobs:
 
       - name: Prepare Android project
         run: |
-          rm -rf app/src/main/java
-          rm -rf app/src/main/assets
-          rm -rf app/src/main/res/values
-          rm -rf app/src/main/res/mipmap-mdpi
-          rm -rf app/src/main/res/mipmap-hdpi
-          rm -rf app/src/main/res/mipmap-xhdpi
-          rm -rf app/src/main/res/mipmap-xxhdpi
-          rm -rf app/src/main/res/mipmap-xxxhdpi
+          rm -rf app
 
-          mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/verba/guide
+          mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/mipmap-mdpi
           mkdir -p app/src/main/res/mipmap-hdpi
@@ -51,6 +44,9 @@ jobs:
 
           cp index.html app/src/main/assets/index.html
           cp rules.json app/src/main/assets/rules.json
+
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
 
           convert icon.png -resize 48x48 app/src/main/res/mipmap-mdpi/ic_launcher.png
           convert icon.png -resize 72x72 app/src/main/res/mipmap-hdpi/ic_launcher.png
@@ -80,7 +76,9 @@ jobs:
                   val controller =
                       WindowCompat.getInsetsController(window, window.decorView)
 
-                  controller.hide(WindowInsetsCompat.Type.navigationBars())
+                  controller.hide(
+                      WindowInsetsCompat.Type.navigationBars()
+                  )
 
                   controller.systemBarsBehavior =
                       WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -116,7 +114,6 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-
               <style name="AppTheme"
                   parent="android:style/Theme.Material.NoActionBar">
 
@@ -125,10 +122,8 @@ jobs:
                   <item name="android:statusBarColor">#009FEF</item>
                   <item name="android:navigationBarColor">#009FEF</item>
                   <item name="android:colorAccent">#00D9FF</item>
-                  <item name="android:windowActionModeOverlay">true</item>
 
               </style>
-
           </resources>
           EOF
 
@@ -154,13 +149,8 @@ jobs:
                       android:screenOrientation="portrait">
 
                       <intent-filter>
-
-                          <action
-                              android:name="android.intent.action.MAIN" />
-
-                          <category
-                              android:name="android.intent.category.LAUNCHER" />
-
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
 
                   </activity>
@@ -186,7 +176,7 @@ jobs:
 
           dependencyResolutionManagement {
               repositoriesMode.set(
-                  RepositoriesMode.FAIL_ON_PROJECT_REPOS
+                  org.gradle.api.initialization.resolve.RepositoriesMode.FAIL_ON_PROJECT_REPOS
               )
 
               repositories {
@@ -196,7 +186,6 @@ jobs:
           }
 
           rootProject.name = "VerbaGuide"
-
           include(":app")
           EOF
 
@@ -215,12 +204,10 @@ jobs:
 
           android {
               namespace = "com.verba.guide"
-
               compileSdk = 35
 
               defaultConfig {
                   applicationId = "com.verba.guide"
-
                   minSdk = 23
                   targetSdk = 35
 
@@ -243,16 +230,14 @@ jobs:
           }
 
           dependencies {
-              implementation(
-                  "androidx.core:core-ktx:1.15.0"
-              )
+              implementation("androidx.core:core-ktx:1.15.0")
           }
           EOF
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: "8.9"
 
       - name: Build VerbaGuide APK
         run: gradle :app:assembleDebug --stacktrace
