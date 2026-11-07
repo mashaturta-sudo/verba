@@ -46,6 +46,8 @@ jobs:
 
           class MainActivity : Activity() {
 
+              private lateinit var web: WebView
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
@@ -56,7 +58,7 @@ jobs:
                   controller.systemBarsBehavior =
                       WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-                  val web = WebView(this)
+                  web = WebView(this)
 
                   web.settings.javaScriptEnabled = true
                   web.settings.domStorageEnabled = true
@@ -72,10 +74,7 @@ jobs:
 
               @Deprecated("Deprecated in Java")
               override fun onBackPressed() {
-                  val web = findViewById(android.R.id.content)
-                      ?.getChildAt(0) as? WebView
-
-                  if (web != null && web.canGoBack()) {
+                  if (web.canGoBack()) {
                       web.goBack()
                   } else {
                       super.onBackPressed()
