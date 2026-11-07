@@ -3,8 +3,7 @@ name: Build VerbaGuide APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
@@ -18,32 +17,20 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Prepare Android project
         run: |
-          rm -rf app
+          rm -rf app/src/main/java
+          rm -rf app/src/main/assets
+          rm -rf app/src/main/res/values
 
-          mkdir -p app/src/main/java/com/verba/guide
           mkdir -p app/src/main/assets
+          mkdir -p app/src/main/java/com/verba/guide
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/mipmap-mdpi
-          mkdir -p app/src/main/res/mipmap-hdpi
-          mkdir -p app/src/main/res/mipmap-xhdpi
-          mkdir -p app/src/main/res/mipmap-xxhdpi
-          mkdir -p app/src/main/res/mipmap-xxxhdpi
 
           cp index.html app/src/main/assets/index.html
           cp rules.json app/src/main/assets/rules.json
-
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-
-          convert icon.png -resize 48x48 app/src/main/res/mipmap-mdpi/ic_launcher.png
-          convert icon.png -resize 72x72 app/src/main/res/mipmap-hdpi/ic_launcher.png
-          convert icon.png -resize 96x96 app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          convert icon.png -resize 144x144 app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          convert icon.png -resize 192x192 app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
           cat > app/src/main/java/com/verba/guide/MainActivity.kt <<'EOF'
           package com.verba.guide
@@ -59,6 +46,8 @@ jobs:
 
           class MainActivity : Activity() {
 
+              private lateinit var webView: WebView
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
@@ -72,28 +61,25 @@ jobs:
                   controller.systemBarsBehavior =
                       WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-                  val web = WebView(this)
+                  webView = WebView(this)
 
-                  web.settings.javaScriptEnabled = true
-                  web.settings.domStorageEnabled = true
-                  web.settings.allowFileAccess = true
+                  webView.settings.javaScriptEnabled = true
+                  webView.settings.domStorageEnabled = true
+                  webView.settings.allowFileAccess = true
+                  webView.settings.allowContentAccess = true
 
-                  web.webViewClient = WebViewClient()
-                  web.setBackgroundColor(Color.TRANSPARENT)
+                  webView.webViewClient = WebViewClient()
 
-                  web.loadUrl("file:///android_asset/index.html")
+                  webView.setBackgroundColor(Color.TRANSPARENT)
 
-                  setContentView(web)
+                  webView.loadUrl("file:///android_asset/index.html")
+
+                  setContentView(webView)
               }
 
-              @Deprecated("Deprecated in Java")
               override fun onBackPressed() {
-                  val web =
-                      findViewById(android.R.id.content)
-                          ?.getChildAt(0) as? WebView
-
-                  if (web != null && web.canGoBack()) {
-                      web.goBack()
+                  if (webView.canGoBack()) {
+                      webView.goBack()
                   } else {
                       super.onBackPressed()
                   }
@@ -103,16 +89,24 @@ jobs:
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
+
               <style name="AppTheme"
                   parent="android:style/Theme.Material.NoActionBar">
 
                   <item name="android:fontFamily">sans</item>
+
                   <item name="android:windowLightStatusBar">false</item>
+
                   <item name="android:statusBarColor">#009FEF</item>
+
                   <item name="android:navigationBarColor">#009FEF</item>
+
                   <item name="android:colorAccent">#00D9FF</item>
 
+                  <item name="android:windowActionModeOverlay">true</item>
+
               </style>
+
           </resources>
           EOF
 
@@ -121,14 +115,11 @@ jobs:
 
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission
-                  android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.INTERNET" />
 
               <application
                   android:theme="@style/AppTheme"
                   android:label="VerbaGuide"
-                  android:icon="@mipmap/ic_launcher"
-                  android:roundIcon="@mipmap/ic_launcher"
                   android:allowBackup="false"
                   android:supportsRtl="true">
 
@@ -138,8 +129,11 @@ jobs:
                       android:screenOrientation="portrait">
 
                       <intent-filter>
+
                           <action android:name="android.intent.action.MAIN" />
+
                           <category android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
@@ -164,9 +158,7 @@ jobs:
           }
 
           dependencyResolutionManagement {
-              repositoriesMode.set(
-                  org.gradle.api.initialization.resolve.RepositoriesMode.FAIL_ON_PROJECT_REPOS
-              )
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 
               repositories {
                   google()
@@ -175,6 +167,7 @@ jobs:
           }
 
           rootProject.name = "VerbaGuide"
+
           include(":app")
           EOF
 
@@ -193,16 +186,17 @@ jobs:
 
           android {
               namespace = "com.verba.guide"
+
               compileSdk = 35
 
               defaultConfig {
                   applicationId = "com.verba.guide"
+
                   minSdk = 23
                   targetSdk = 35
 
                   versionCode =
-                      System.getenv("GITHUB_RUN_NUMBER")
-                          ?.toIntOrNull() ?: 1
+                      System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
                   versionName =
                       "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "1"}"
@@ -226,7 +220,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: '8.9'
 
       - name: Build VerbaGuide APK
         run: gradle :app:assembleDebug --stacktrace
