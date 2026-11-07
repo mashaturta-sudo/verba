@@ -1,39 +1,47 @@
-name: Build Verba Rules APK
+name: Build VerbaGuide APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+
+      # 1. Забираем файлы из репозитория
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
+      # 2. Создаём Android-проект
       - name: Prepare Android project
+        shell: bash
         run: |
+
           rm -rf app/src/main/java
           rm -rf app/src/main/assets
           rm -rf app/src/main/res/values
 
           mkdir -p app/src/main/assets
-          mkdir -p app/src/main/java/com/verba/rules
+          mkdir -p app/src/main/java/com/verba/guide
           mkdir -p app/src/main/res/values
 
+          # HTML приложения
           cp index.html app/src/main/assets/index.html
+
+          # Все правила
           cp rules.json app/src/main/assets/rules.json
 
-          cat > app/src/main/java/com/verba/rules/MainActivity.kt <<'EOF'
-          package com.verba.rules
+
+          # -----------------------------------------
+          # MainActivity
+          # -----------------------------------------
+
+          cat > app/src/main/java/com/verba/guide/MainActivity.kt <<'EOF'
+          package com.verba.guide
 
           import android.app.Activity
           import android.os.Bundle
@@ -46,35 +54,47 @@ jobs:
 
           class MainActivity : Activity() {
 
-              private lateinit var web: WebView
-
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
                   WindowCompat.setDecorFitsSystemWindows(window, false)
 
-                  val controller = WindowCompat.getInsetsController(window, window.decorView)
-                  controller.hide(WindowInsetsCompat.Type.navigationBars())
+                  val controller =
+                      WindowCompat.getInsetsController(window, window.decorView)
+
+                  controller.hide(
+                      WindowInsetsCompat.Type.navigationBars()
+                  )
+
                   controller.systemBarsBehavior =
                       WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-                  web = WebView(this)
+                  val web = WebView(this)
 
                   web.settings.javaScriptEnabled = true
                   web.settings.domStorageEnabled = true
                   web.settings.allowFileAccess = true
+                  web.settings.allowContentAccess = true
+
                   web.webViewClient = WebViewClient()
 
                   web.setBackgroundColor(Color.TRANSPARENT)
 
-                  web.loadUrl("file:///android_asset/index.html")
+                  web.loadUrl(
+                      "file:///android_asset/index.html"
+                  )
 
                   setContentView(web)
               }
 
               @Deprecated("Deprecated in Java")
               override fun onBackPressed() {
-                  if (web.canGoBack()) {
+
+                  val web =
+                      findViewById(android.R.id.content)
+                          ?.getChildAt(0) as? WebView
+
+                  if (web != null && web.canGoBack()) {
                       web.goBack()
                   } else {
                       super.onBackPressed()
@@ -83,28 +103,21 @@ jobs:
           }
           EOF
 
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#009FEF</item>
-                  <item name="android:navigationBarColor">#009FEF</item>
-                  <item name="android:colorAccent">#00D9FF</item>
-                  <item name="android:windowActionModeOverlay">true</item>
-              </style>
-          </resources>
-          EOF
+
+          # -----------------------------------------
+          # AndroidManifest
+          # -----------------------------------------
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
+
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.INTERNET" />
 
               <application
                   android:theme="@style/AppTheme"
-                  android:label="Verba Rules"
+                  android:label="VerbaGuide"
                   android:allowBackup="false"
                   android:supportsRtl="true">
 
@@ -114,8 +127,13 @@ jobs:
                       android:screenOrientation="portrait">
 
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
+
+                          <action
+                              android:name="android.intent.action.MAIN" />
+
+                          <category
+                              android:name="android.intent.category.LAUNCHER" />
+
                       </intent-filter>
 
                   </activity>
@@ -125,13 +143,53 @@ jobs:
           </manifest>
           EOF
 
+
+          # -----------------------------------------
+          # Стили Android
+          # -----------------------------------------
+
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+
+              <style
+                  name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+
+                  <item name="android:windowLightStatusBar">false</item>
+
+                  <item name="android:statusBarColor">#061A46</item>
+
+                  <item name="android:navigationBarColor">#061A46</item>
+
+                  <item name="android:colorAccent">#20B8FF</item>
+
+                  <item name="android:windowActionModeOverlay">true</item>
+
+              </style>
+
+          </resources>
+          EOF
+
+
+          # -----------------------------------------
+          # Gradle properties
+          # -----------------------------------------
+
           cat > gradle.properties <<'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
+
+          # -----------------------------------------
+          # settings.gradle.kts
+          # -----------------------------------------
+
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
+
               repositories {
                   google()
                   mavenCentral()
@@ -140,98 +198,131 @@ jobs:
           }
 
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
+              repositoriesMode.set(
+                  RepositoriesMode.FAIL_ON_PROJECT_REPOS
+              )
+
               repositories {
                   google()
                   mavenCentral()
               }
           }
 
-          rootProject.name = "VerbaRules"
+          rootProject.name = "VerbaGuide"
+
           include(":app")
           EOF
 
+
+          # -----------------------------------------
+          # Главный build.gradle.kts
+          # -----------------------------------------
+
           cat > build.gradle.kts <<'EOF'
           plugins {
-              id("com.android.application") version "8.7.3" apply false
-              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+
+              id("com.android.application")
+                  version "8.7.3"
+                  apply false
+
+              id("org.jetbrains.kotlin.android")
+                  version "2.0.21"
+                  apply false
           }
           EOF
 
+
+          # -----------------------------------------
+          # app/build.gradle.kts
+          # -----------------------------------------
+
           cat > app/build.gradle.kts <<'EOF'
           plugins {
+
               id("com.android.application")
+
               id("org.jetbrains.kotlin.android")
           }
 
+
           android {
-              namespace = "com.verba.rules"
+
+              namespace = "com.verba.guide"
+
               compileSdk = 35
 
+
               defaultConfig {
-                  applicationId = "com.verba.rules"
+
+                  /*
+                   * НОВЫЙ ПАКЕТ VERBAGUIDE
+                   *
+                   * Старый:
+                   * com.verba.rules
+                   *
+                   * Новый:
+                   * com.verba.guide
+                   */
+
+                  applicationId = "com.verba.guide"
+
                   minSdk = 23
+
                   targetSdk = 35
 
                   versionCode =
-                      System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+                      System.getenv("GITHUB_RUN_NUMBER")
+                          ?.toIntOrNull()
+                          ?: 1
 
                   versionName =
                       "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "1"}"
               }
 
-              signingConfigs {
-                  create("release") {
-                      storeFile = file("../verbaguide-release.jks")
-                      storePassword = System.getenv("KEYSTORE_PASSWORD")
-                      keyAlias = "veraguide"
-                      keyPassword = System.getenv("KEY_PASSWORD")
-                  }
-              }
-
-              buildTypes {
-                  getByName("release") {
-                      signingConfig = signingConfigs.getByName("release")
-                      isMinifyEnabled = false
-                  }
-              }
 
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+
+                  sourceCompatibility =
+                      JavaVersion.VERSION_17
+
+                  targetCompatibility =
+                      JavaVersion.VERSION_17
               }
 
+
               kotlinOptions {
+
                   jvmTarget = "17"
               }
           }
 
+
           dependencies {
-              implementation("androidx.core:core-ktx:1.15.0")
+
+              implementation(
+                  "androidx.core:core-ktx:1.15.0"
+              )
           }
           EOF
 
-      - name: Decode signing key
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > verbaguide-release.jks
-          test -s verbaguide-release.jks
 
+      # 3. Устанавливаем Gradle
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: "8.9"
 
-      - name: Build signed APK
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      # 4. Собираем APK
+      - name: Build VerbaGuide APK
         run: |
-          gradle :app:assembleRelease
+          gradle :app:assembleDebug
 
-      - name: Upload APK
+
+      # 5. Загружаем APK
+      - name: Upload VerbaGuide APK
         uses: actions/upload-artifact@v4
         with:
-          name: VerbaGuide-Signed-APK
-          path: app/build/outputs/apk/release/app-release.apk
+          name: VerbaGuide-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
