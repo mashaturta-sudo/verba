@@ -11,34 +11,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # 1. Забираем файлы из репозитория
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Создаём Android-проект
-      - name: Prepare Android project
-        shell: bash
-        run: |
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Prepare Android project
+        run: |
           rm -rf app/src/main/java
           rm -rf app/src/main/assets
           rm -rf app/src/main/res/values
+          rm -rf app/src/main/res/mipmap-mdpi
+          rm -rf app/src/main/res/mipmap-hdpi
+          rm -rf app/src/main/res/mipmap-xhdpi
+          rm -rf app/src/main/res/mipmap-xxhdpi
+          rm -rf app/src/main/res/mipmap-xxxhdpi
 
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/verba/guide
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/mipmap-mdpi
+          mkdir -p app/src/main/res/mipmap-hdpi
+          mkdir -p app/src/main/res/mipmap-xhdpi
+          mkdir -p app/src/main/res/mipmap-xxhdpi
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
 
-          # HTML приложения
           cp index.html app/src/main/assets/index.html
-
-          # Все правила
           cp rules.json app/src/main/assets/rules.json
 
-
-          # -----------------------------------------
-          # MainActivity
-          # -----------------------------------------
+          convert icon.png -resize 48x48 app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert icon.png -resize 72x72 app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert icon.png -resize 96x96 app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert icon.png -resize 144x144 app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert icon.png -resize 192x192 app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
           cat > app/src/main/java/com/verba/guide/MainActivity.kt <<'EOF'
           package com.verba.guide
@@ -62,9 +80,7 @@ jobs:
                   val controller =
                       WindowCompat.getInsetsController(window, window.decorView)
 
-                  controller.hide(
-                      WindowInsetsCompat.Type.navigationBars()
-                  )
+                  controller.hide(WindowInsetsCompat.Type.navigationBars())
 
                   controller.systemBarsBehavior =
                       WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -74,22 +90,17 @@ jobs:
                   web.settings.javaScriptEnabled = true
                   web.settings.domStorageEnabled = true
                   web.settings.allowFileAccess = true
-                  web.settings.allowContentAccess = true
 
                   web.webViewClient = WebViewClient()
-
                   web.setBackgroundColor(Color.TRANSPARENT)
 
-                  web.loadUrl(
-                      "file:///android_asset/index.html"
-                  )
+                  web.loadUrl("file:///android_asset/index.html")
 
                   setContentView(web)
               }
 
               @Deprecated("Deprecated in Java")
               override fun onBackPressed() {
-
                   val web =
                       findViewById(android.R.id.content)
                           ?.getChildAt(0) as? WebView
@@ -103,21 +114,37 @@ jobs:
           }
           EOF
 
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
 
-          # -----------------------------------------
-          # AndroidManifest
-          # -----------------------------------------
+              <style name="AppTheme"
+                  parent="android:style/Theme.Material.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#009FEF</item>
+                  <item name="android:navigationBarColor">#009FEF</item>
+                  <item name="android:colorAccent">#00D9FF</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+
+              </style>
+
+          </resources>
+          EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
 
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission
+                  android:name="android.permission.INTERNET" />
 
               <application
                   android:theme="@style/AppTheme"
                   android:label="VerbaGuide"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
                   android:allowBackup="false"
                   android:supportsRtl="true">
 
@@ -143,53 +170,13 @@ jobs:
           </manifest>
           EOF
 
-
-          # -----------------------------------------
-          # Стили Android
-          # -----------------------------------------
-
-          cat > app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-
-              <style
-                  name="AppTheme"
-                  parent="android:style/Theme.Material.NoActionBar">
-
-                  <item name="android:fontFamily">sans</item>
-
-                  <item name="android:windowLightStatusBar">false</item>
-
-                  <item name="android:statusBarColor">#061A46</item>
-
-                  <item name="android:navigationBarColor">#061A46</item>
-
-                  <item name="android:colorAccent">#20B8FF</item>
-
-                  <item name="android:windowActionModeOverlay">true</item>
-
-              </style>
-
-          </resources>
-          EOF
-
-
-          # -----------------------------------------
-          # Gradle properties
-          # -----------------------------------------
-
           cat > gradle.properties <<'EOF'
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-
-          # -----------------------------------------
-          # settings.gradle.kts
-          # -----------------------------------------
-
           cat > settings.gradle.kts <<'EOF'
           pluginManagement {
-
               repositories {
                   google()
                   mavenCentral()
@@ -198,7 +185,6 @@ jobs:
           }
 
           dependencyResolutionManagement {
-
               repositoriesMode.set(
                   RepositoriesMode.FAIL_ON_PROJECT_REPOS
               )
@@ -214,113 +200,63 @@ jobs:
           include(":app")
           EOF
 
-
-          # -----------------------------------------
-          # Главный build.gradle.kts
-          # -----------------------------------------
-
           cat > build.gradle.kts <<'EOF'
           plugins {
-
-              id("com.android.application")
-                  version "8.7.3"
-                  apply false
-
-              id("org.jetbrains.kotlin.android")
-                  version "2.0.21"
-                  apply false
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
           }
           EOF
 
-
-          # -----------------------------------------
-          # app/build.gradle.kts
-          # -----------------------------------------
-
           cat > app/build.gradle.kts <<'EOF'
           plugins {
-
               id("com.android.application")
-
               id("org.jetbrains.kotlin.android")
           }
 
-
           android {
-
               namespace = "com.verba.guide"
 
               compileSdk = 35
 
-
               defaultConfig {
-
-                  /*
-                   * НОВЫЙ ПАКЕТ VERBAGUIDE
-                   *
-                   * Старый:
-                   * com.verba.rules
-                   *
-                   * Новый:
-                   * com.verba.guide
-                   */
-
                   applicationId = "com.verba.guide"
 
                   minSdk = 23
-
                   targetSdk = 35
 
                   versionCode =
                       System.getenv("GITHUB_RUN_NUMBER")
-                          ?.toIntOrNull()
-                          ?: 1
+                          ?.toIntOrNull() ?: 1
 
                   versionName =
                       "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "1"}"
               }
 
-
               compileOptions {
-
-                  sourceCompatibility =
-                      JavaVersion.VERSION_17
-
-                  targetCompatibility =
-                      JavaVersion.VERSION_17
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
               }
 
-
               kotlinOptions {
-
                   jvmTarget = "17"
               }
           }
 
-
           dependencies {
-
               implementation(
                   "androidx.core:core-ktx:1.15.0"
               )
           }
           EOF
 
-
-      # 3. Устанавливаем Gradle
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: '8.9'
 
-
-      # 4. Собираем APK
       - name: Build VerbaGuide APK
-        run: |
-          gradle :app:assembleDebug
+        run: gradle :app:assembleDebug --stacktrace
 
-
-      # 5. Загружаем APK
       - name: Upload VerbaGuide APK
         uses: actions/upload-artifact@v4
         with:
